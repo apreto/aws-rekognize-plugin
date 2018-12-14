@@ -34,6 +34,7 @@ import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.pentaho.di.core.exception.KettleException;
+import org.pentaho.di.core.exception.KettleStepException;
 import org.pentaho.di.core.row.RowDataUtil;
 import org.pentaho.di.core.row.RowMeta;
 import org.pentaho.di.core.row.RowMetaInterface;
@@ -46,6 +47,7 @@ import org.pentaho.di.trans.step.StepInterface;
 import org.pentaho.di.trans.step.StepMeta;
 import org.pentaho.di.trans.step.StepMetaInterface;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -182,19 +184,9 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
       return false;
     }
 
-    // follows code to fill out rows. Code should be here only if we ignore input (as we are doing now)
 
-    // HERE: we fill out the rows... sample/dummy code
-    testGetAllFacesInfo(meta, data); // TODO: refactor, just checking if this can get files from bucket and print to console
-    for (int i = 0; i < 6; i++) {
-      Object[] outputRow = RowDataUtil.allocateRowData(data.outputRowMeta.size());
-      outputRow[data.fieldImageFileIndex] = "s3://" + meta.getS3BucketName() + "/path/to/the/imagefile.jpg";
-      outputRow[data.fieldFaceIdIndex] = "dummyFaceId-22";
-      outputRow[data.fieldPropertyIndex] = "BORED";
-      outputRow[data.fieldValueIndex] = "true";
-      outputRow[data.fieldConfidenceIndex] = new Double(76.2D);
-      putRow(data.outputRowMeta, outputRow);
-    }
+    processAllImages(meta, data);
+
     setOutputDone();
     return false;
   }
@@ -226,7 +218,20 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
   }
 
 
-  protected void testGetAllFacesInfo(FaceAnalysisMeta meta, FaceAnalysisData data) {
+
+  protected void putRowWithFaceProperty(FaceAnalysisData data, String imageFile, String faceId,
+                                        String property, String value, Double confidence ) throws KettleStepException {
+    Object[] outputRow = RowDataUtil.allocateRowData(data.outputRowMeta.size());
+    outputRow[data.fieldImageFileIndex] = imageFile;
+    outputRow[data.fieldFaceIdIndex] = faceId;
+    outputRow[data.fieldPropertyIndex] = property;
+    outputRow[data.fieldValueIndex] = value;
+    outputRow[data.fieldConfidenceIndex] = confidence;
+    putRow(data.outputRowMeta, outputRow);
+  }
+
+
+  protected void processAllImages(FaceAnalysisMeta meta, FaceAnalysisData data) throws KettleStepException {
 
     ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(meta.getS3BucketName()); //.withMaxKeys(2);
     ListObjectsV2Result result;
@@ -237,92 +242,93 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
         System.out.printf(" - %s (size: %d)\n", objectSummary.getKey(), objectSummary.getSize());
 
         DetectFacesRequest request = new DetectFacesRequest()
-                .withImage(new Image()
-                        .withS3Object(new S3Object()
-                                .withName(objectSummary.getKey()).withBucket(meta.getS3BucketName())))
-                .withAttributes(Attribute.ALL);
+            .withImage(new Image()
+                .withS3Object(new S3Object()
+                    .withName(objectSummary.getKey()).withBucket(meta.getS3BucketName())))
+            .withAttributes(Attribute.ALL);
 
         DetectFacesResult facesResult = data.rekognitionClient.detectFaces( request );
         List<FaceDetail> faceDetails = facesResult.getFaceDetails();
+        int faceNumber = 1;
         for (FaceDetail faceDetail : faceDetails) {
-          printFaceDetails(faceDetail);
+          processFaceDetails(meta, data, faceDetail, objectSummary.getKey(), faceNumber++);
         }
-        //END
-
       }
     } while (result.isTruncated());
 
   }
 
 
-  private void printFaceDetails(FaceDetail faceDetail) {
+  private void processFaceDetails(FaceAnalysisMeta meta, FaceAnalysisData data,
+                                  FaceDetail faceDetail, String imageName, int faceNumber) throws KettleStepException {
 
-      AgeRange ageRange = faceDetail.getAgeRange();
-      System.out.println("Age range: " + ageRange.getLow() + "-" + ageRange.getHigh());
+    //putRowWithFaceProperty(FaceAnalysisData data, String imageFile, String faceId,
+    //    String property, String value, Double confidence ) throws KettleStepException {
 
-      Beard beard = faceDetail.getBeard();
-      System.out.println("Beard: " + beard.getValue() + "; confidence=" + beard.getConfidence());
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_AGERANGELOW", faceDetail.getAgeRange().getLow().toString(), new Double(faceDetail.getConfidence()) );
 
-     /*   BoundingBox bb = faceDetail.getBoundingBox();
-        System.out.println("BoundingBox: left=" + bb.getLeft() +
-                ", top=" + bb.getTop() + ", width=" + bb.getWidth() +
-                ", height=" + bb.getHeight());
-*/
-      Float confidence = faceDetail.getConfidence();
-      System.out.println("Confidence: " + confidence);
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_AGEGANGEHIGH", faceDetail.getAgeRange().getHigh().toString(), new Double(faceDetail.getConfidence()) );
 
-      List<Emotion> emotions = faceDetail.getEmotions();
-      for (Emotion emotion : emotions) {
-        System.out.println("Emotion: " + emotion.getType() +
-                "; confidence=" + emotion.getConfidence());
-      }
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_BEARD",faceDetail.getBeard().getValue().toString(), new Double(faceDetail.getBeard().getConfidence()) );
 
-      Eyeglasses eyeglasses = faceDetail.getEyeglasses();
-      System.out.println("Eyeglasses: " + eyeglasses.getValue() +
-              "; confidence=" + eyeglasses.getConfidence());
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_EYEGLASSES",faceDetail.getEyeglasses().getValue().toString(), new Double(faceDetail.getEyeglasses().getConfidence()) );
 
-      EyeOpen eyesOpen = faceDetail.getEyesOpen();
-      System.out.println("EyeOpen: " + eyesOpen.getValue() +
-              "; confidence=" + eyesOpen.getConfidence());
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_EYESOPEN",faceDetail.getEyesOpen().getValue().toString(), new Double(faceDetail.getEyesOpen().getConfidence()) );
 
-      Gender gender = faceDetail.getGender();
-      System.out.println("Gender: " + gender.getValue() +
-              "; confidence=" + gender.getConfidence());
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_GENDER",faceDetail.getGender().getValue(), new Double(faceDetail.getGender().getConfidence()) );
 
-  /*      List<Landmark> landmarks = faceDetail.getLandmarks();
-        for (Landmark lm : landmarks) {
-            System.out.println("Landmark: " + lm.getType()
-                    + ", x=" + lm.getX() + "; y=" + lm.getY());
-        }
-*/
-      MouthOpen mouthOpen = faceDetail.getMouthOpen();
-      System.out.println("MouthOpen: " + mouthOpen.getValue() +
-              "; confidence=" + mouthOpen.getConfidence());
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_SMILE",faceDetail.getSmile().getValue().toString(), new Double(faceDetail.getSmile().getConfidence()) );
 
-      Mustache mustache = faceDetail.getMustache();
-      System.out.println("Mustache: " + mustache.getValue() +
-              "; confidence=" + mustache.getConfidence());
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_MOUTHOPEN",faceDetail.getMouthOpen().getValue().toString(), new Double(faceDetail.getMouthOpen().getConfidence()) );
 
-      Pose pose = faceDetail.getPose();
-      System.out.println("Pose: pitch=" + pose.getPitch() +
-              "; roll=" + pose.getRoll() + "; yaw" + pose.getYaw());
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_MUSTACHE",faceDetail.getMustache().getValue().toString(), new Double(faceDetail.getMustache().getConfidence()) );
 
-      ImageQuality quality = faceDetail.getQuality();
-      System.out.println("Quality: brightness=" +
-              quality.getBrightness() + "; sharpness=" + quality.getSharpness());
+    putRowWithFaceProperty( data, imageName, ""+faceNumber,
+        "DETAIL_SUNGLASSES",faceDetail.getSunglasses().getValue().toString(), new Double(faceDetail.getSunglasses().getConfidence()) );
 
-      Smile smile = faceDetail.getSmile();
-      System.out.println("Smile: " + smile.getValue() +
-              "; confidence=" + smile.getConfidence());
-
-      Sunglasses sunglasses = faceDetail.getSunglasses();
-      System.out.println("Sunglasses=" + sunglasses.getValue() +
-              "; confidence=" + sunglasses.getConfidence());
-
-      System.out.println("###############");
+    // last but not least, add a row per each emotion
+    List<Emotion> emotions = faceDetail.getEmotions();
+    for (Emotion emotion : emotions) {
+      putRowWithFaceProperty( data, imageName, ""+faceNumber,
+          "EMOTION", emotion.getType(), new Double(emotion.getConfidence()) );
     }
 
 
+    /*
+
+    List<Landmark> landmarks = faceDetail.getLandmarks();
+    for (Landmark lm : landmarks) {
+      System.out.println("Landmark: " + lm.getType()
+          + ", x=" + lm.getX() + "; y=" + lm.getY());
+    }
+
+    Pose pose = faceDetail.getPose();
+    System.out.println("Pose: pitch=" + pose.getPitch() + "; roll=" + pose.getRoll() + "; yaw" + pose.getYaw());
+
+    ImageQuality quality = faceDetail.getQuality();
+    System.out.println("Quality: brightness=" + quality.getBrightness() + "; sharpness=" + quality.getSharpness());
+
+
+    BoundingBox bb = faceDetail.getBoundingBox();
+    System.out.println("BoundingBox: left=" + bb.getLeft() +
+                ", top=" + bb.getTop() + ", width=" + bb.getWidth() +
+                ", height=" + bb.getHeight());
+
+    Float confidence = faceDetail.getConfidence();
+    System.out.println("Confidence: " + confidence);
+
+    */
+  }
+  
 
 
 }

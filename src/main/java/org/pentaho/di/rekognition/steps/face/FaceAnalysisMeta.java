@@ -22,8 +22,10 @@
 
 package org.pentaho.di.rekognition.steps.face;
 
+import java.util.Arrays;
 import java.util.List;
 
+import com.google.common.collect.ImmutableList;
 import org.eclipse.swt.widgets.Shell;
 import org.pentaho.di.core.CheckResult;
 import org.pentaho.di.core.CheckResultInterface;
@@ -37,6 +39,7 @@ import org.pentaho.di.core.injection.Injection;
 import org.pentaho.di.core.injection.InjectionSupported;
 import org.pentaho.di.core.row.RowMetaInterface;
 import org.pentaho.di.core.row.ValueMetaInterface;
+import org.pentaho.di.core.row.value.ValueMetaNumber;
 import org.pentaho.di.core.row.value.ValueMetaString;
 import org.pentaho.di.core.variables.VariableSpace;
 import org.pentaho.di.core.xml.XMLHandler;
@@ -269,23 +272,19 @@ public class FaceAnalysisMeta extends BaseStepMeta implements StepMetaInterface 
   public void getFields( RowMetaInterface inputRowMeta, String name, RowMetaInterface[] info, StepMeta nextStep,
       VariableSpace space, Repository repository, IMetaStore metaStore ) throws KettleStepException {
 
-    /*
-     * This implementation appends the s3BucketName to the row-stream
-     */
+    // adds our custom fields to output metadata
+    List<String> stringFieldsToAdd = Arrays.asList("ImageFile", "FaceID", "Property", "Value");
+    for (String fieldName : stringFieldsToAdd) {
+      ValueMetaInterface v = new ValueMetaString(fieldName);
+      v.setTrimType(ValueMetaInterface.TRIM_TYPE_BOTH);
+      v.setOrigin(name);
+      inputRowMeta.addValueMeta(v);
+    }
 
-    // a value meta object contains the meta data for a field
-    ValueMetaInterface v = new ValueMetaString("S3FileName"); // TODO: REVIEW new ValueMetaString(s3BucketName);
-
-    // setting trim type to "both"
+    ValueMetaInterface v = new ValueMetaNumber("Confidence");
     v.setTrimType( ValueMetaInterface.TRIM_TYPE_BOTH );
-
-    // the name of the step that adds this field
     v.setOrigin( name );
-
-    // modify the row structure and add the field this step generates  
     inputRowMeta.addValueMeta( v );
-
-
 
   }
 

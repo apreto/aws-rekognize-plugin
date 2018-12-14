@@ -130,12 +130,12 @@ public class FaceAnalysisStepMetaTest {
     m.getFields( rowMeta, "demo_step", null, null, null, null, null );
 
     // expect one field to be added to the row stream
-    assertEquals( rowMeta.size(), 1 );
+    assertEquals( rowMeta.size(), 5 );
 
     // that field must be a string and named as configured
     assertEquals( rowMeta.getValueMeta(0).getType(), ValueMetaInterface.TYPE_STRING );
     assertEquals( rowMeta.getValueMeta(0).getStorageType(), ValueMetaInterface.STORAGE_TYPE_NORMAL );
-    assertEquals( rowMeta.getFieldNames()[0], "S3FileName" );
+    assertEquals( rowMeta.getFieldNames()[0], "ImageFile" );
   }
 
   @Test

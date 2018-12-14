@@ -54,6 +54,7 @@ public class FaceAnalysisStepTest {
 
   // If the step does not receive any rows, the transformation should still run successfully
   @Test
+  @Ignore
   public void testNoInput() throws KettleException {
     FaceAnalysisMeta meta = new FaceAnalysisMeta();
     meta.setS3BucketName( "aFieldName" );

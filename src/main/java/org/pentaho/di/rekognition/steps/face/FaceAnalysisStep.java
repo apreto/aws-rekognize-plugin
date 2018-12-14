@@ -35,6 +35,7 @@ import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.pentaho.di.core.exception.KettleException;
 import org.pentaho.di.core.row.RowDataUtil;
+import org.pentaho.di.core.row.RowMeta;
 import org.pentaho.di.core.row.RowMetaInterface;
 import org.pentaho.di.i18n.BaseMessages;
 import org.pentaho.di.trans.Trans;
@@ -133,6 +134,7 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
             .build();
 
 
+    data.outputRowMeta = new RowMeta();
 
     return true;
   }
@@ -164,28 +166,23 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
     FaceAnalysisMeta meta = (FaceAnalysisMeta) smi;
     FaceAnalysisData data = (FaceAnalysisData) sdi;
 
-    // get incoming row, getRow() potentially blocks waiting for more rows, returns null if no more rows expected
-    Object[] r = getRow();
-
-    // if no more rows are expected, indicate step is finished and processRow() should not be called again
-    if ( r == null ) {
-      setOutputDone();
-      return false;
-    }
-
     // the "first" flag is inherited from the base step implementation
     // it is used to guard some processing tasks, like figuring out field indexes
     // in the row structure that only need to be done once
     if ( first ) {
       first = false;
       // clone the input row structure and place it in our data object
-      data.outputRowMeta = (RowMetaInterface) getInputRowMeta().clone();
-      // use meta.getFields() to change it, so it reflects the output row structure 
+
+      RowMetaInterface inputRowMeta =  (RowMetaInterface) getInputRowMeta();
+      if (inputRowMeta != null) {
+        data.outputRowMeta = inputRowMeta.clone(); // else uses empty row meta
+      }
+      // use meta.getFields() to change it, so it reflects the output row structure
       meta.getFields( data.outputRowMeta, getStepname(), null, null, this, null, null );
 
       // Locate the row index for this step's field
       // If less than 0, the field was not found.
-      data.outputFieldIndex = data.outputRowMeta.indexOfValue( "S3FileName"/*TODO meta.getS3BucketName()*/ );
+      data.outputFieldIndex = data.outputRowMeta.indexOfValue( "ImageFile" );
       if ( data.outputFieldIndex < 0 ) {
         log.logError( BaseMessages.getString( PKG, "FaceAnalysisStep.Error.NoOutputField" ) );
         setErrors( 1L );
@@ -194,6 +191,19 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
       }
       testGetAllFacesInfo(meta, data);
 
+      // HERE: we fill out the rows...
+
+      setOutputDone();
+      return false;
+    }
+
+    // get incoming row, getRow() potentially blocks waiting for more rows, returns null if no more rows expected
+    Object[] r = getRow();
+
+    // if no more rows are expected, indicate step is finished and processRow() should not be called again
+    if ( r == null ) {
+      setOutputDone();
+      return false;
     }
 
     // safely add the string "Hello World!" at the end of the output row

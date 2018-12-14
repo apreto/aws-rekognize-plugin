@@ -55,7 +55,14 @@ public class FaceAnalysisData extends BaseStepData implements StepDataInterface 
   AmazonRekognition rekognitionClient;
 
   RowMetaInterface outputRowMeta;
-  int outputFieldIndex = -1;
+  //int outputFieldIndex = -1;
+
+  // index of outputFields created by this step, filled on FaceAnalysisStep.processRow() on first row
+  int fieldImageFileIndex = -1;
+  int fieldFaceIdIndex = -1;
+  int fieldPropertyIndex = -1;
+  int fieldValueIndex = -1;
+  int fieldConfidenceIndex = -1;
 
   public FaceAnalysisData() {
     super();

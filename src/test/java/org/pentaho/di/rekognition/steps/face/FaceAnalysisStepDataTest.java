@@ -33,6 +33,6 @@ public class FaceAnalysisStepDataTest {
   public void testDefaults() {
     FaceAnalysisData data = new FaceAnalysisData();
     assertNull( data.outputRowMeta );
-    assertEquals( -1, data.outputFieldIndex );
+    assertEquals( -1, data.fieldFaceIdIndex );
   }
 }

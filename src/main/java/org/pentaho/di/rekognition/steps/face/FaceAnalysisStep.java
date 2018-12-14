@@ -133,9 +133,6 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
             .withRegion("us-east-1")
             .build();
 
-
-    data.outputRowMeta = new RowMeta();
-
     return true;
   }
 
@@ -166,61 +163,40 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
     FaceAnalysisMeta meta = (FaceAnalysisMeta) smi;
     FaceAnalysisData data = (FaceAnalysisData) sdi;
 
-    // the "first" flag is inherited from the base step implementation
-    // it is used to guard some processing tasks, like figuring out field indexes
-    // in the row structure that only need to be done once
-    if ( first ) {
-      first = false;
-      // clone the input row structure and place it in our data object
+    data.outputRowMeta = new RowMeta();
+    // use meta.getFields() to change it, so it reflects the output row structure
+    meta.getFields( data.outputRowMeta, getStepname(), null, null, this, null, null );
 
-      RowMetaInterface inputRowMeta =  (RowMetaInterface) getInputRowMeta();
-      if (inputRowMeta != null) {
-        data.outputRowMeta = inputRowMeta.clone(); // else uses empty row meta
-      }
-      // use meta.getFields() to change it, so it reflects the output row structure
-      meta.getFields( data.outputRowMeta, getStepname(), null, null, this, null, null );
-
-      // Locate the row index for this step's field
-      // If less than 0, the field was not found.
-      data.outputFieldIndex = data.outputRowMeta.indexOfValue( "ImageFile" );
-      if ( data.outputFieldIndex < 0 ) {
-        log.logError( BaseMessages.getString( PKG, "FaceAnalysisStep.Error.NoOutputField" ) );
-        setErrors( 1L );
-        setOutputDone();
-        return false;
-      }
-      testGetAllFacesInfo(meta, data);
-
-      // HERE: we fill out the rows...
-
+    // Locate the row index for this step's field
+    // If less than 0, the field was not found.
+    data.fieldImageFileIndex = data.outputRowMeta.indexOfValue( FaceAnalysisMeta.FIELD_IMAGE_FILE );
+    data.fieldFaceIdIndex = data.outputRowMeta.indexOfValue( FaceAnalysisMeta.FIELD_FACE_ID );
+    data.fieldPropertyIndex = data.outputRowMeta.indexOfValue( FaceAnalysisMeta.FIELD_PROPERTY );
+    data.fieldValueIndex = data.outputRowMeta.indexOfValue( FaceAnalysisMeta.FIELD_VALUE );
+    data.fieldConfidenceIndex = data.outputRowMeta.indexOfValue( FaceAnalysisMeta.FIELD_CONFIDENCE );
+    if ( data.fieldImageFileIndex < 0 || data.fieldFaceIdIndex < 0 || data.fieldPropertyIndex < 0 ||
+         data.fieldValueIndex < 0 || data.fieldConfidenceIndex < 0) {
+      log.logError( BaseMessages.getString( PKG, "FaceAnalysisStep.Error.NoOutputField" ) );
+      setErrors( 1L );
       setOutputDone();
       return false;
     }
 
-    // get incoming row, getRow() potentially blocks waiting for more rows, returns null if no more rows expected
-    Object[] r = getRow();
+    // follows code to fill out rows. Code should be here only if we ignore input (as we are doing now)
 
-    // if no more rows are expected, indicate step is finished and processRow() should not be called again
-    if ( r == null ) {
-      setOutputDone();
-      return false;
+    // HERE: we fill out the rows... sample/dummy code
+    testGetAllFacesInfo(meta, data); // TODO: refactor, just checking if this can get files from bucket and print to console
+    for (int i = 0; i < 6; i++) {
+      Object[] outputRow = RowDataUtil.allocateRowData(data.outputRowMeta.size());
+      outputRow[data.fieldImageFileIndex] = "s3://" + meta.getS3BucketName() + "/path/to/the/imagefile.jpg";
+      outputRow[data.fieldFaceIdIndex] = "dummyFaceId-22";
+      outputRow[data.fieldPropertyIndex] = "BORED";
+      outputRow[data.fieldValueIndex] = "true";
+      outputRow[data.fieldConfidenceIndex] = new Double(76.2D);
+      putRow(data.outputRowMeta, outputRow);
     }
-
-    // safely add the string "Hello World!" at the end of the output row
-    // the row array will be resized if necessary 
-    Object[] outputRow = RowDataUtil.resizeArray( r, data.outputRowMeta.size() );
-    outputRow[data.outputFieldIndex] = meta.getS3BucketName(); // "Hello World!";
-
-    // put the row to the output row stream
-    putRow( data.outputRowMeta, outputRow );
-
-    // log progress if it is time to to so
-    if ( checkFeedback( getLinesRead() ) ) {
-      logBasic( BaseMessages.getString( PKG, "FaceAnalysisStep.Linenr", getLinesRead() ) ); // Some basic logging
-    }
-
-    // indicate that processRow() should be called again
-    return true;
+    setOutputDone();
+    return false;
   }
 
   /**

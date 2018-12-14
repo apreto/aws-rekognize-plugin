@@ -96,6 +96,15 @@ public class FaceAnalysisMeta extends BaseStepMeta implements StepMetaInterface 
    */
   private static final Class<?> PKG = FaceAnalysisMeta.class; // for i18n purposes
 
+  // output field names are "ImageFile", "FaceID", "Property", "Value", "Confidence"
+  // TODO: add field ImageFileDateTime or ImageDateTime
+  public static final String FIELD_IMAGE_FILE = "ImageFile";
+  public static final String FIELD_FACE_ID = "FaceID";
+  public static final String FIELD_PROPERTY = "Property";
+  public static final String FIELD_VALUE = "Value";
+  public static final String FIELD_CONFIDENCE = "Confidence";
+
+
   /**
    * Stores the name of the field added to the row-stream. 
    */
@@ -273,7 +282,7 @@ public class FaceAnalysisMeta extends BaseStepMeta implements StepMetaInterface 
       VariableSpace space, Repository repository, IMetaStore metaStore ) throws KettleStepException {
 
     // adds our custom fields to output metadata
-    List<String> stringFieldsToAdd = Arrays.asList("ImageFile", "FaceID", "Property", "Value");
+    List<String> stringFieldsToAdd = Arrays.asList(FIELD_IMAGE_FILE, FIELD_FACE_ID, FIELD_PROPERTY, FIELD_VALUE);
     for (String fieldName : stringFieldsToAdd) {
       ValueMetaInterface v = new ValueMetaString(fieldName);
       v.setTrimType(ValueMetaInterface.TRIM_TYPE_BOTH);
@@ -281,8 +290,7 @@ public class FaceAnalysisMeta extends BaseStepMeta implements StepMetaInterface 
       inputRowMeta.addValueMeta(v);
     }
 
-    ValueMetaInterface v = new ValueMetaNumber("Confidence");
-    v.setTrimType( ValueMetaInterface.TRIM_TYPE_BOTH );
+    ValueMetaInterface v = new ValueMetaNumber(FIELD_CONFIDENCE);
     v.setOrigin( name );
     inputRowMeta.addValueMeta( v );
 

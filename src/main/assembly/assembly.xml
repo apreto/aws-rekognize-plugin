@@ -23,5 +23,17 @@
       <excludes>
       </excludes>
     </dependencySet>
+    <!-- S3 libs -->
+    <dependencySet>
+      <useProjectArtifact>false</useProjectArtifact>
+      <includes>
+        <!--include>com.amazonaws:aws-java-s3-core</include-->
+        <include>com.amazonaws:aws-java-s3</include>
+        <include>com.amazonaws:aws-java-sdk-rekognition</include>
+        <include>com.amazonaws:aws-java-sdk-core</include>
+      </includes>
+      <outputDirectory>lib</outputDirectory>
+    </dependencySet>
+    <!-- Se lib -->
   </dependencySets>
 </assembly>

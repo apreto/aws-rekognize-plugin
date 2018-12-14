@@ -22,6 +22,17 @@
 
 package org.pentaho.di.rekognition.steps.face;
 
+import com.amazonaws.ClientConfiguration;
+import com.amazonaws.Protocol;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.services.rekognition.AmazonRekognition;
+import com.amazonaws.services.rekognition.AmazonRekognitionClientBuilder;
+import com.amazonaws.services.rekognition.model.*;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.pentaho.di.core.exception.KettleException;
 import org.pentaho.di.core.row.RowDataUtil;
 import org.pentaho.di.core.row.RowMetaInterface;
@@ -33,6 +44,8 @@ import org.pentaho.di.trans.step.StepDataInterface;
 import org.pentaho.di.trans.step.StepInterface;
 import org.pentaho.di.trans.step.StepMeta;
 import org.pentaho.di.trans.step.StepMetaInterface;
+
+import java.util.List;
 
 /**
  * This class is part of the demo step plug-in implementation.
@@ -99,6 +112,28 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
     }
 
     // Add any step-specific initialization that may be needed here
+    // AWS S3 and Rekognition API Initialization (sample code)
+    ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
+
+    ClientConfiguration clientConfig = new ClientConfiguration();
+    clientConfig.setConnectionTimeout(30000);
+    clientConfig.setRequestTimeout(60000);
+    clientConfig.setProtocol(Protocol.HTTPS);
+
+    data.s3Client = AmazonS3ClientBuilder.standard()
+            .withCredentials(credentialsProvider)
+            .withRegion("us-east-1")
+            .build();
+
+    data.rekognitionClient = AmazonRekognitionClientBuilder
+            .standard()
+            .withClientConfiguration(clientConfig)
+            .withCredentials(credentialsProvider)
+            .withRegion("us-east-1")
+            .build();
+
+
+
     return true;
   }
 
@@ -157,6 +192,8 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
         setOutputDone();
         return false;
       }
+      testGetAllFacesInfo(meta, data);
+
     }
 
     // safely add the string "Hello World!" at the end of the output row
@@ -201,4 +238,105 @@ public class FaceAnalysisStep extends BaseStep implements StepInterface {
     // Call superclass dispose()
     super.dispose( meta, data );
   }
+
+
+  protected void testGetAllFacesInfo(FaceAnalysisMeta meta, FaceAnalysisData data) {
+
+    ListObjectsV2Request req = new ListObjectsV2Request().withBucketName(meta.getS3BucketName()); //.withMaxKeys(2);
+    ListObjectsV2Result result;
+
+    do {
+      result = data.s3Client.listObjectsV2(req);
+      for (S3ObjectSummary objectSummary : result.getObjectSummaries()) {
+        System.out.printf(" - %s (size: %d)\n", objectSummary.getKey(), objectSummary.getSize());
+
+        DetectFacesRequest request = new DetectFacesRequest()
+                .withImage(new Image()
+                        .withS3Object(new S3Object()
+                                .withName(objectSummary.getKey()).withBucket(meta.getS3BucketName())))
+                .withAttributes(Attribute.ALL);
+
+        DetectFacesResult facesResult = data.rekognitionClient.detectFaces( request );
+        List<FaceDetail> faceDetails = facesResult.getFaceDetails();
+        for (FaceDetail faceDetail : faceDetails) {
+          printFaceDetails(faceDetail);
+        }
+        //END
+
+      }
+    } while (result.isTruncated());
+
+  }
+
+
+  private void printFaceDetails(FaceDetail faceDetail) {
+
+      AgeRange ageRange = faceDetail.getAgeRange();
+      System.out.println("Age range: " + ageRange.getLow() + "-" + ageRange.getHigh());
+
+      Beard beard = faceDetail.getBeard();
+      System.out.println("Beard: " + beard.getValue() + "; confidence=" + beard.getConfidence());
+
+     /*   BoundingBox bb = faceDetail.getBoundingBox();
+        System.out.println("BoundingBox: left=" + bb.getLeft() +
+                ", top=" + bb.getTop() + ", width=" + bb.getWidth() +
+                ", height=" + bb.getHeight());
+*/
+      Float confidence = faceDetail.getConfidence();
+      System.out.println("Confidence: " + confidence);
+
+      List<Emotion> emotions = faceDetail.getEmotions();
+      for (Emotion emotion : emotions) {
+        System.out.println("Emotion: " + emotion.getType() +
+                "; confidence=" + emotion.getConfidence());
+      }
+
+      Eyeglasses eyeglasses = faceDetail.getEyeglasses();
+      System.out.println("Eyeglasses: " + eyeglasses.getValue() +
+              "; confidence=" + eyeglasses.getConfidence());
+
+      EyeOpen eyesOpen = faceDetail.getEyesOpen();
+      System.out.println("EyeOpen: " + eyesOpen.getValue() +
+              "; confidence=" + eyesOpen.getConfidence());
+
+      Gender gender = faceDetail.getGender();
+      System.out.println("Gender: " + gender.getValue() +
+              "; confidence=" + gender.getConfidence());
+
+  /*      List<Landmark> landmarks = faceDetail.getLandmarks();
+        for (Landmark lm : landmarks) {
+            System.out.println("Landmark: " + lm.getType()
+                    + ", x=" + lm.getX() + "; y=" + lm.getY());
+        }
+*/
+      MouthOpen mouthOpen = faceDetail.getMouthOpen();
+      System.out.println("MouthOpen: " + mouthOpen.getValue() +
+              "; confidence=" + mouthOpen.getConfidence());
+
+      Mustache mustache = faceDetail.getMustache();
+      System.out.println("Mustache: " + mustache.getValue() +
+              "; confidence=" + mustache.getConfidence());
+
+      Pose pose = faceDetail.getPose();
+      System.out.println("Pose: pitch=" + pose.getPitch() +
+              "; roll=" + pose.getRoll() + "; yaw" + pose.getYaw());
+
+      ImageQuality quality = faceDetail.getQuality();
+      System.out.println("Quality: brightness=" +
+              quality.getBrightness() + "; sharpness=" + quality.getSharpness());
+
+      Smile smile = faceDetail.getSmile();
+      System.out.println("Smile: " + smile.getValue() +
+              "; confidence=" + smile.getConfidence());
+
+      Sunglasses sunglasses = faceDetail.getSunglasses();
+      System.out.println("Sunglasses=" + sunglasses.getValue() +
+              "; confidence=" + sunglasses.getConfidence());
+
+      System.out.println("###############");
+    }
+
+
+
+
 }

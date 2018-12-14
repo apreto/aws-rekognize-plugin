@@ -10,6 +10,9 @@
   <artifactId>aws-rekognize-plugin</artifactId>
   <version>8.3.0.0-SNAPSHOT</version>
   <name>Amazon AWS Rekognize Video Processing PDI Plugin</name>
+  <properties>
+    <aws.version>1.11.466</aws.version>
+  </properties>
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -62,6 +65,21 @@
       <artifactId>mockito-all</artifactId>
       <version>${mockito.version}</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-rekognition</artifactId>
+      <version>${aws.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-core</artifactId>
+      <version>${aws.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-s3</artifactId>
+      <version>${aws.version}</version>
     </dependency>
   </dependencies>
   <build>

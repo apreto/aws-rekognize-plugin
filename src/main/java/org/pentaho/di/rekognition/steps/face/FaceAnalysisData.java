@@ -22,6 +22,8 @@
 
 package org.pentaho.di.rekognition.steps.face;
 
+import com.amazonaws.services.rekognition.AmazonRekognition;
+import com.amazonaws.services.s3.AmazonS3;
 import org.pentaho.di.core.row.RowMetaInterface;
 import org.pentaho.di.trans.step.BaseStepData;
 import org.pentaho.di.trans.step.StepDataInterface;
@@ -47,6 +49,10 @@ import org.pentaho.di.trans.step.StepDataInterface;
  *   
  */
 public class FaceAnalysisData extends BaseStepData implements StepDataInterface {
+
+  // S3
+  AmazonS3 s3Client;
+  AmazonRekognition rekognitionClient;
 
   RowMetaInterface outputRowMeta;
   int outputFieldIndex = -1;

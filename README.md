@@ -11,10 +11,15 @@ mvn clean install
 INSTALLING:
 
 cd target 
+
 cp aws-rekognize-plugin-8.3.0.0-SNAPSHOT.zip $SPOON_DIR/data-integration/plugins
+
 cd $SPOON_DIR/data-integration/plugins
+
 unzip aws-rekognize-plugin-8.3.0.0-SNAPSHOT.zip
+
 rm aws-rekognize-plugin-8.3.0.0-SNAPSHOT.zip
+
 
 Before running spoon, you need to set your AWS credentials on ~/.aws/credentials .
 The "AWS Rekognition Face Analysis" PDI Step allows to specify an AWS bucket and process all images on this bucket using AWS Rekognition Face Analysis API.
